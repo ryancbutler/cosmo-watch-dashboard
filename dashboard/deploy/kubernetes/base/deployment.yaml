@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cosmo-dashboard
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: cosmo-dashboard
+  template:
+    metadata:
+      labels:
+        app: cosmo-dashboard
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        runAsNonRoot: true
+      containers:
+        - name: dashboard
+          image: cosmo-dashboard:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DASHBOARD_AUTH_ENABLED
+              value: "true"
+            - name: COSMO_DATA_MODE
+              value: realtime
+          envFrom:
+            - secretRef:
+                name: cosmo-dashboard-secrets
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 60
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: runtime
+              mountPath: /tmp
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: runtime
+          emptyDir:
+            medium: Memory

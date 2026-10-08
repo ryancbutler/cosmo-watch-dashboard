@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cosmo
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cosmo-collector
+  namespace: cosmo
+spec:
+  schedule: "*/5 * * * *"
+  timeZone: Etc/UTC
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 240
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 180
+      backoffLimit: 1
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: cosmo-collector
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            fsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: trigger
+              image: python:3.13-alpine@sha256:2d9aefe2fef018a7eb2c13064c89c71929800fd2e5dccdbf52ea5da5bb8d929a
+              command: [python, -B, -u, /app/collector-trigger.py]
+              env:
+                - name: SITE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: cosmo-site-service
+                      key: site-url
+                - name: SITE_ORIGIN
+                  valueFrom:
+                    secretKeyRef:
+                      name: cosmo-site-service
+                      key: site-url
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 32Mi
+                limits:
+                  cpu: 100m
+                  memory: 64Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: [ALL]
+              volumeMounts:
+                - name: script
+                  mountPath: /app
+                  readOnly: true
+                - name: service-access
+                  mountPath: /var/run/secrets/cosmo
+                  readOnly: true
+          volumes:
+            - name: script
+              configMap:
+                name: cosmo-collector-script
+            - name: service-access
+              secret:
+                secretName: cosmo-site-service
+                defaultMode: 0440

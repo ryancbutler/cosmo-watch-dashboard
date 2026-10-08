@@ -1,0 +1,30 @@
+# Secrets and personal data
+.env
+.tokens.json
+captures/
+chat-backups/
+*.har
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+
+# Private runtime artifacts anywhere in the checkout
+.env*
+!.env.example
+.dev.vars*
+*.sqlite*
+*.db
+.openai/hosting.local.json
+node_modules/
+.wrangler/
+dist/
+.next/
+.vinext/
+.sites-runtime/
+outputs/
+work/
+*.tsbuildinfo

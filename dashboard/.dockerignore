@@ -1,0 +1,17 @@
+node_modules
+dist
+.next
+.vinext
+.wrangler
+.sites-runtime
+.env*
+.dev.vars*
+**/.env*
+**/.dev.vars*
+.openai/hosting.local.json
+.openai/execution-profile.json
+.openai/*.local.*
+*.sqlite*
+*.db
+*.tsbuildinfo
+docs/screenshots

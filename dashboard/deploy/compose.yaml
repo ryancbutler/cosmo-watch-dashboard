@@ -1,0 +1,31 @@
+services:
+  dashboard:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: cosmo-dashboard:local
+    environment:
+      COSMO_DATA_MODE: ${COSMO_DATA_MODE:-history}
+      DASHBOARD_AUTH_ENABLED: ${DASHBOARD_AUTH_ENABLED:-true}
+      COSMO_EMAIL: ${COSMO_EMAIL:?Set COSMO_EMAIL in your private env file}
+      COSMO_PASSWORD: ${COSMO_PASSWORD:?Set COSMO_PASSWORD in your private env file}
+      DASHBOARD_USERNAME: ${DASHBOARD_USERNAME:-}
+      DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD:-}
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - history:/data
+    tmpfs:
+      - /tmp:uid=1000,gid=1000,mode=1777
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:8080/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+volumes:
+  history:

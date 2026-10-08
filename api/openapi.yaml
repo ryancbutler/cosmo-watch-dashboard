@@ -1,0 +1,402 @@
+openapi: 3.0.3
+info:
+  title: COSMO / FiLIP API reference
+  version: 0.2.0
+  description: >-
+    Unofficial API reference for informational and educational purposes.
+    This project is not affiliated with or endorsed by COSMO or FiLIP.
+    Schemas are partial; endpoint availability, validation, response codes,
+    and authorization behavior may vary by account and device. Generic objects
+    indicate fields that are not fully specified. See API.md for usage notes.
+servers:
+  - url: https://api.myfilip.com
+    description: Production mobile API
+  - url: https://mobile-api-preprod.myfilip.com
+    description: Pre-production mobile API
+  - url: https://euapi.myfilip.com
+    description: QA mobile API
+tags:
+  - { name: Account }
+  - { name: Device }
+  - { name: Contacts }
+  - { name: Health }
+  - { name: Messaging }
+  - { name: Settings }
+security: [{ bearerAuth: [] }]
+paths:
+  /v2/token:
+    post: { tags: [Account], summary: Sign in, security: [], requestBody: { $ref: '#/components/requestBodies/LoginRequest' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/token/refresh:
+    post: { tags: [Account], summary: Refresh session, security: [], requestBody: { $ref: '#/components/requestBodies/RefreshRequest' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/logout:
+    post: { tags: [Account], summary: Sign out, requestBody: { $ref: '#/components/requestBodies/LogoutRequest' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/user/register:
+    post: { tags: [Account], summary: Register user, security: [], requestBody: { $ref: '#/components/requestBodies/RegisterUserRequest' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/user/register/gabb:
+    post: { tags: [Account], summary: Register Gabb user, security: [], requestBody: { $ref: '#/components/requestBodies/RegisterGabbUserRequest' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/sso/gabb:
+    post: { tags: [Account], summary: Gabb SSO login, security: [], requestBody: { $ref: '#/components/requestBodies/JsonObject' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/user/emailVerification:
+    post: { tags: [Account], summary: Begin email verification, requestBody: { $ref: '#/components/requestBodies/JsonObject' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/user/isVerified:
+    post: { tags: [Account], summary: Check email verification, requestBody: { $ref: '#/components/requestBodies/StringMap' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/countries:
+    get: { tags: [Account], summary: List countries, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/password/change:
+    post: { tags: [Account], summary: Change password, security: [], requestBody: { $ref: '#/components/requestBodies/JsonObject' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/password/set:
+    post: { tags: [Account], summary: Set password, requestBody: { $ref: '#/components/requestBodies/JsonObject' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/user/profile:
+    get: { tags: [Account], summary: Get current profile, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/user/update:
+    put: { tags: [Account], summary: Update current profile, requestBody: { $ref: '#/components/requestBodies/JsonObject' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/user/image:
+    get: { tags: [Account], summary: Get current user image, responses: { '200': { $ref: '#/components/responses/Binary' } } }
+  /v2/user/preferences:
+    get: { tags: [Settings], summary: Get preferences, responses: { '200': { $ref: '#/components/responses/Json' } } }
+    post: { tags: [Settings], summary: Update preferences, requestBody: { $ref: '#/components/requestBodies/JsonObject' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/user/unregister:
+    post: { tags: [Account], summary: Unregister current user, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/push/register/fcm:
+    post: { tags: [Account], summary: Register FCM, requestBody: { $ref: '#/components/requestBodies/JsonObject' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/whitelabel-settings:
+    get: { tags: [Settings], summary: Get white-label settings, security: [], responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/analytics:
+    post: { tags: [Account], summary: Send analytics, requestBody: { $ref: '#/components/requestBodies/JsonObject' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/feedback:
+    post: { tags: [Account], summary: Send feedback, requestBody: { $ref: '#/components/requestBodies/JsonObject' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+
+  /v2/map:
+    get: { tags: [Device], summary: List devices and locations, responses: { '200': { $ref: '#/components/responses/MapEnvelope' } } }
+  /v2/map/refresh:
+    post: { tags: [Device], summary: Refresh all device locations, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/map/refresh/{deviceId}:
+    post: { tags: [Device], summary: Refresh device location, parameters: [{ $ref: '#/components/parameters/DeviceId' }], responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/map/history/{deviceId}:
+    post: { tags: [Device], summary: Get location history, parameters: [{ $ref: '#/components/parameters/DeviceId' }], requestBody: { $ref: '#/components/requestBodies/JsonObject' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/safezones:
+    get: { tags: [Device], summary: List configured safe zones, responses: { '200': { $ref: '#/components/responses/Json' } } }
+    post: { tags: [Device], summary: Create safe zone, requestBody: { $ref: '#/components/requestBodies/SafeZoneV2' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/safezones/{id}:
+    put: { tags: [Device], summary: Update safe zone, parameters: [{ $ref: '#/components/parameters/Id' }], requestBody: { $ref: '#/components/requestBodies/SafeZoneV2' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+    delete: { tags: [Device], summary: Delete safe zone, parameters: [{ $ref: '#/components/parameters/Id' }], responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/settings/{deviceId}:
+    put: { tags: [Settings], summary: Change active tracking settings and wake watch, parameters: [{ $ref: '#/components/parameters/DeviceId' }], requestBody: { $ref: '#/components/requestBodies/TrackingSettings' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/location:
+    post: { tags: [Device], summary: Report device location, requestBody: { $ref: '#/components/requestBodies/JsonObject' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/findMyWatch/{deviceId}:
+    post: { tags: [Device], summary: Find my watch, parameters: [{ $ref: '#/components/parameters/DeviceId' }], responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/event/{deviceId}:
+    post: { tags: [Device], summary: Send device event, parameters: [{ $ref: '#/components/parameters/DeviceId' }], requestBody: { $ref: '#/components/requestBodies/EventBody' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/callnotifications:
+    post: { tags: [Device], summary: Request call from device, requestBody: { $ref: '#/components/requestBodies/CallInformation' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/device/profile/{deviceId}:
+    get: { tags: [Device], summary: Get device profile, parameters: [{ $ref: '#/components/parameters/DeviceId' }], responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/device/update-profile/{deviceId}:
+    put: { tags: [Device], summary: Update device profile, parameters: [{ $ref: '#/components/parameters/DeviceId' }], requestBody: { $ref: '#/components/requestBodies/JsonObject' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/device/image/{deviceId}:
+    get: { tags: [Device], summary: Get device image, parameters: [{ $ref: '#/components/parameters/DeviceId' }], responses: { '200': { $ref: '#/components/responses/Binary' } } }
+  /v2/device/register/imei:
+    post: { tags: [Device], summary: Register device by IMEI, requestBody: { $ref: '#/components/requestBodies/DeviceIMEIRegisterRequest' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/device/register:
+    post: { tags: [Device], summary: Register device by MDN, requestBody: { $ref: '#/components/requestBodies/DeviceMDNRegisterRequest' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/init-pairing/{imei}:
+    post: { tags: [Device], summary: Initialize tracker pairing, parameters: [{ $ref: '#/components/parameters/Imei' }], requestBody: { $ref: '#/components/requestBodies/JsonObject' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/sendActivationCode:
+    post: { tags: [Device], summary: Send activation code, requestBody: { $ref: '#/components/requestBodies/JsonObject' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/sendActivationCode/{imei}:
+    post: { tags: [Device], summary: Send activation code to IMEI, parameters: [{ $ref: '#/components/parameters/Imei' }], responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/device/unregister:
+    post: { tags: [Device], summary: Unregister device, requestBody: { $ref: '#/components/requestBodies/DeviceUnregisterRequest' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/firmware/check/{deviceId}:
+    post: { tags: [Device], summary: Check device firmware, parameters: [{ $ref: '#/components/parameters/DeviceId' }], responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/firmware/update/{deviceId}:
+    post: { tags: [Device], summary: Start firmware update, parameters: [{ $ref: '#/components/parameters/DeviceId' }], responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/calllogging/{deviceId}:
+    get: { tags: [Device], summary: Get call logs, parameters: [{ $ref: '#/components/parameters/DeviceId' }], responses: { '200': { $ref: '#/components/responses/Json' } } }
+
+  /v2/contact:
+    get: { tags: [Contacts], summary: List contacts, responses: { '200': { $ref: '#/components/responses/Json' } } }
+    post: { tags: [Contacts], summary: Add contact, requestBody: { $ref: '#/components/requestBodies/JsonObject' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/contact/{id}:
+    put: { tags: [Contacts], summary: Update contact, parameters: [{ $ref: '#/components/parameters/Id' }], requestBody: { $ref: '#/components/requestBodies/JsonObject' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+    delete: { tags: [Contacts], summary: Delete contact, parameters: [{ $ref: '#/components/parameters/Id' }], responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/contact/image/{id}:
+    get: { tags: [Contacts], summary: Get contact avatar, parameters: [{ $ref: '#/components/parameters/Id' }], responses: { '200': { $ref: '#/components/responses/Binary' } } }
+  /v2/contact/add-devices:
+    post: { tags: [Contacts], summary: Add devices to contact, requestBody: { $ref: '#/components/requestBodies/JsonObject' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/contact/emergency:
+    get: { tags: [Contacts], summary: Get emergency contact, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/contact/emergency/{id}:
+    put: { tags: [Contacts], summary: Update emergency contact, parameters: [{ $ref: '#/components/parameters/Id' }], requestBody: { $ref: '#/components/requestBodies/JsonObject' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/friends:
+    get: { tags: [Contacts], summary: Get pending friends, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/friends/{id}/approve:
+    post: { tags: [Contacts], summary: Approve friend, parameters: [{ $ref: '#/components/parameters/Id' }], responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/friends/{id}/reject:
+    post: { tags: [Contacts], summary: Reject friend, parameters: [{ $ref: '#/components/parameters/Id' }], responses: { '200': { $ref: '#/components/responses/Json' } } }
+
+  /v2/alarms:
+    get: { tags: [Health], summary: List alarms, responses: { '200': { $ref: '#/components/responses/AlarmEnvelope' } } }
+    post: { tags: [Health], summary: Create alarm, requestBody: { $ref: '#/components/requestBodies/EditAlarm' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/alarms/all:
+    get: { tags: [Health], summary: List all alarms, responses: { '200': { $ref: '#/components/responses/AlarmEnvelope' } } }
+  /v2/alarms/{id}:
+    put: { tags: [Health], summary: Update alarm, parameters: [{ $ref: '#/components/parameters/Id' }], requestBody: { $ref: '#/components/requestBodies/EditAlarm' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+    delete: { tags: [Health], summary: Delete alarm, parameters: [{ $ref: '#/components/parameters/Id' }], responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/stepcounter:
+    get: { tags: [Health], summary: Get step leaderboard, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/eventlogs:
+    get: { tags: [Device], summary: Read stored notifications, responses: { '200': { $ref: '#/components/responses/NotificationEnvelope' } } }
+  /v2/stepcounter/list/daily/simple/{deviceId}:
+    post:
+      tags: [Health]
+      summary: Query stored daily step totals without syncing the watch
+      description: Read-only history query, despite using POST. Client limits requests to increasing calendar dates spanning at most 31 days. Server boundary inclusivity is not established.
+      x-read-only: true
+      parameters: [{ $ref: '#/components/parameters/DeviceId' }]
+      requestBody: { $ref: '#/components/requestBodies/DailyStepRange' }
+      responses: { '200': { $ref: '#/components/responses/DailyStepsEnvelope' } }
+  /v2/stepcounter/report/{deviceId}:
+    post: { tags: [Health], summary: Request step sync, parameters: [{ $ref: '#/components/parameters/DeviceId' }], responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/device/goals/{deviceId}:
+    get: { tags: [Health], summary: Get step goal, parameters: [{ $ref: '#/components/parameters/DeviceId' }], responses: { '200': { $ref: '#/components/responses/Json' } } }
+    post: { tags: [Health], summary: Update step goal, parameters: [{ $ref: '#/components/parameters/DeviceId' }], requestBody: { $ref: '#/components/requestBodies/JsonObject' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/heartrate:
+    get: { tags: [Health], summary: Get heart rate summary, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/heartrate/{deviceId}:
+    post: { tags: [Health], summary: Get heart rate range, parameters: [{ $ref: '#/components/parameters/DeviceId' }], requestBody: { $ref: '#/components/requestBodies/DateRange' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/sleepmonitor:
+    get: { tags: [Health], summary: Get sleep summary, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/sleepmonitor/{deviceId}:
+    post: { tags: [Health], summary: Get sleep range, parameters: [{ $ref: '#/components/parameters/DeviceId' }], requestBody: { $ref: '#/components/requestBodies/DateRange' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/spo2/{deviceId}:
+    post: { tags: [Health], summary: Get oxygen range, parameters: [{ $ref: '#/components/parameters/DeviceId' }], requestBody: { $ref: '#/components/requestBodies/DateRange' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+
+
+  /v2/todo:
+    get: { tags: [Messaging], summary: List todos, responses: { '200': { $ref: '#/components/responses/Json' } } }
+    post: { tags: [Messaging], summary: Create todo, requestBody: { $ref: '#/components/requestBodies/JsonObject' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/todo/{todoId}:
+    put: { tags: [Messaging], summary: Update todo, parameters: [{ $ref: '#/components/parameters/TodoId' }], requestBody: { $ref: '#/components/requestBodies/JsonObject' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/tokk:
+    get: { tags: [Messaging], summary: Get chats, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/tokk/device/{id}/messages:
+    get: { tags: [Messaging], summary: Get device messages, parameters: [{ $ref: '#/components/parameters/Id' }], responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/tokk/user/{id}/messages:
+    get: { tags: [Messaging], summary: Get user messages, parameters: [{ $ref: '#/components/parameters/Id' }], responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/tokk/group/{id}/messages:
+    get: { tags: [Messaging], summary: Get group messages, parameters: [{ $ref: '#/components/parameters/Id' }], responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/tokk/device/{id}/message:
+    post: { tags: [Messaging], summary: Send device message, parameters: [{ $ref: '#/components/parameters/Id' }], requestBody: { $ref: '#/components/requestBodies/TextMessage' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/tokk/user/{id}/message:
+    post: { tags: [Messaging], summary: Send user message, parameters: [{ $ref: '#/components/parameters/Id' }], requestBody: { $ref: '#/components/requestBodies/JsonObject' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/tokk/group/{id}/message:
+    post: { tags: [Messaging], summary: Send group message, parameters: [{ $ref: '#/components/parameters/Id' }], requestBody: { $ref: '#/components/requestBodies/JsonObject' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/tokk/group:
+    post: { tags: [Messaging], summary: Create group chat, requestBody: { $ref: '#/components/requestBodies/JsonObject' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/tokk/group/{id}:
+    put: { tags: [Messaging], summary: Update group chat, parameters: [{ $ref: '#/components/parameters/Id' }], requestBody: { $ref: '#/components/requestBodies/JsonObject' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+    delete: { tags: [Messaging], summary: Delete group chat, parameters: [{ $ref: '#/components/parameters/Id' }], responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/tokk/picture:
+    post: { tags: [Messaging], summary: Upload image, requestBody: { $ref: '#/components/requestBodies/MultipartFile' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/tokk/video:
+    post: { tags: [Messaging], summary: Upload video, requestBody: { $ref: '#/components/requestBodies/MultipartFile' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+  /v2/tokk/voice:
+    post: { tags: [Messaging], summary: Upload voice, requestBody: { $ref: '#/components/requestBodies/MultipartFile' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT, description: "Inferred from the client; token format is not verified." }
+  parameters:
+    Id: { name: id, in: path, required: true, schema: { type: integer, format: int32 } }
+    DeviceId: { name: deviceId, in: path, required: true, schema: { type: integer, format: int32 } }
+    TodoId: { name: todoId, in: path, required: true, schema: { type: integer, format: int32 } }
+    Imei: { name: imei, in: path, required: true, schema: { type: string } }
+  schemas:
+    JsonObject: { type: object, additionalProperties: true, description: "Partial JSON object; complete fields are not specified." }
+    LoginRequest:
+      type: object
+      required: [whiteLabelId, email, password, appBuild]
+      properties:
+        whiteLabelId: { type: integer, format: int32 }
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+        appBuild: { type: string }
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties: { refreshToken: { type: string } }
+    CallInformation:
+      type: object
+      properties: { contactId: { type: integer, format: int32 }, deviceId: { type: integer, format: int32 } }
+    EventBody:
+      type: object
+      properties: { reason: { type: string } }
+    DeviceUnregisterRequest:
+      type: object
+      properties: { deviceId: { type: integer, format: int32 }, deleteESim: { type: boolean } }
+    DeviceIMEIRegisterRequest:
+      type: object
+      properties:
+        Name: { type: string }
+        LastName: { type: string }
+        BirthDate: { type: integer, format: int64 }
+        Height: { type: number, format: float }
+        Weight: { type: number, format: float }
+        Gender: { type: integer, format: int32 }
+        Relationship: { type: string }
+        ActivationCode: { type: string }
+        Photo: { type: string }
+        Imei: { type: string }
+        GsmNumber: { type: string }
+        PhoneName: { type: string }
+        configurationType: { type: string }
+        pet: { $ref: '#/components/schemas/JsonObject' }
+    DeviceMDNRegisterRequest:
+      type: object
+      properties: { activationCode: { type: string }, dob: { type: integer, format: int64 }, firstName: { type: string }, gender: { type: integer }, gsmNumber: { type: string }, height: { type: number }, lastName: { type: string }, photo: { type: string }, relationship: { type: string }, type: { type: string }, weight: { type: number } }
+    TextMessage:
+      type: object
+      required: [messageType, data]
+      description: Text message body; sending changes the watch conversation.
+      properties:
+        messageType: { type: integer, enum: [1] }
+        data: { type: string }
+    AlarmRead:
+      type: object
+      additionalProperties: true
+      properties:
+        Id: { type: integer }
+        title: { type: string }
+        enabled: { type: boolean }
+        time: { type: integer, nullable: true }
+        endTime: { type: integer, nullable: true }
+        weekDays: { type: array, items: { type: boolean }, minItems: 7, maxItems: 7 }
+        devices: { type: array, items: { type: object, properties: { id: { type: integer } } } }
+        schoolMode: { type: boolean, nullable: true }
+        focusMode: { type: boolean, nullable: true }
+    DailyStepRange:
+      type: object
+      required: [startDate, endDate]
+      properties:
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+    DailySteps:
+      type: object
+      properties:
+        stepcount:
+          type: array
+          items:
+            type: object
+            properties:
+              day: { type: string, format: date }
+              totalStep: { type: integer, nullable: true }
+              totalStepOnWatch: { type: integer, nullable: true, description: Prefer when non-null including zero; clamp negative totals to zero for display. }
+    Notification:
+      type: object
+      additionalProperties: true
+      properties:
+        id: { type: integer }
+        deviceId: { type: integer, nullable: true }
+        created: { type: string, format: date-time, nullable: true }
+        translated: { type: string, nullable: true }
+        description: { type: string, nullable: true }
+        read: { type: boolean, nullable: true }
+        deleted: { type: boolean, nullable: true }
+    DeviceState:
+      type: object
+      additionalProperties: true
+      properties:
+        id: { type: integer }
+        hardwareName: { type: string }
+        hardwareVersion: { type: string, description: JT5 prefix suggests JrTrack 5; model inference rather than an explicit retail model field. }
+        shutdown: { type: boolean, nullable: true, description: Last-reported power off when true; no connectivity guarantee. }
+        batteryLevel: { type: number, nullable: true }
+        externalBatteryLevel: { type: number, nullable: true, description: Semantics unknown; do not substitute for batteryLevel. }
+        gpsDate: { type: string, format: date-time, nullable: true }
+        latitude: { type: number, nullable: true }
+        longitude: { type: number, nullable: true }
+        radius: { type: number, nullable: true, description: Approximate uncertainty; meters inferred. }
+        sourceType: { type: integer, nullable: true, description: Enum meanings unknown. }
+        isValid: { type: boolean, nullable: true }
+    MapEnvelope:
+      type: object
+      properties:
+        status: { type: integer }
+        data:
+          type: object
+          properties:
+            Devices: { type: array, items: { $ref: '#/components/schemas/DeviceState' } }
+            SafeZones: { type: array, items: { type: object, additionalProperties: true } }
+    TrackingSettings:
+      type: object
+      required: [activeTrackingEnable, activeTrackingDuration, activeTrackingFrequency]
+      properties:
+        activeTrackingEnable: { type: boolean }
+        activeTrackingDuration: { type: integer, description: Seconds }
+        activeTrackingFrequency: { type: integer, description: Seconds }
+    SafeZoneV2:
+      type: object
+      additionalProperties: true
+      properties:
+        Id: { type: integer }
+        name: { type: string }
+        address: { type: string, nullable: true, description: May return null even after create. }
+        latitude: { type: string, description: CLI creation sends coordinate strings. }
+        longitude: { type: string }
+        radius: { type: number, minimum: 200, maximum: 600 }
+        enabled: { type: boolean }
+        type: { type: integer }
+        devices:
+          type: array
+          items:
+            type: object
+            properties:
+              deviceId: { type: integer }
+              enable: { type: boolean }
+              silent: { type: boolean }
+              silentDays: { type: array, items: { type: integer, minimum: 1, maximum: 7 } }
+    EditAlarm:
+      type: object
+      additionalProperties: true
+      description: Alarm write body; GET Alarm uses different casing and title instead of Name.
+      properties:
+        Name: { type: string }
+        Enabled: { type: boolean }
+        Time: { type: integer, minimum: 0, maximum: 86399 }
+        EndTime: { type: integer, minimum: 0, maximum: 86399 }
+        WeekDays: { type: array, minItems: 7, maxItems: 7, items: { type: boolean }, description: Monday first. }
+        Devices: { type: array, items: { type: integer } }
+        SchoolMode: { type: boolean }
+        Type: { type: integer, description: Focus Mode uses 4. }
+        Lockdown: { type: boolean }
+        owning: { type: boolean }
+    DateRange: { type: object, additionalProperties: true, description: "Date-range object; fields are not specified for this operation." }
+  requestBodies:
+    TextMessage: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TextMessage' } } } }
+    DailyStepRange: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DailyStepRange' } } } }
+    SafeZoneV2: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SafeZoneV2' } } } }
+    EditAlarm: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/EditAlarm' } } } }
+    TrackingSettings: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TrackingSettings' } } } }
+    JsonObject: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/JsonObject' } } } }
+    StringMap: { required: true, content: { application/json: { schema: { type: object, additionalProperties: { type: string } } } } }
+    LoginRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LoginRequest' } } } }
+    RefreshRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RefreshRequest' } } } }
+    LogoutRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/JsonObject' } } } }
+    RegisterUserRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/JsonObject' } } } }
+    RegisterGabbUserRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/JsonObject' } } } }
+    DeviceIMEIRegisterRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DeviceIMEIRegisterRequest' } } } }
+    DeviceMDNRegisterRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DeviceMDNRegisterRequest' } } } }
+    DeviceUnregisterRequest: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DeviceUnregisterRequest' } } } }
+    CallInformation: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CallInformation' } } } }
+    EventBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/EventBody' } } } }
+    DateRange: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DateRange' } } } }
+    MultipartFile: { required: true, content: { multipart/form-data: { schema: { type: object, additionalProperties: true } } } }
+  responses:
+    AlarmEnvelope: { description: Alarm list; casing differs from EditAlarm writes., content: { application/json: { schema: { type: object, properties: { status: { type: integer }, data: { type: array, items: { $ref: '#/components/schemas/AlarmRead' } } } } } } }
+    MapEnvelope: { description: Partial map response; last-known state only., content: { application/json: { schema: { $ref: '#/components/schemas/MapEnvelope' } } } }
+    DailyStepsEnvelope: { description: Daily totals., content: { application/json: { schema: { type: object, properties: { status: { type: integer }, data: { $ref: '#/components/schemas/DailySteps' } } } } } }
+    NotificationEnvelope: { description: Stored notification records; availability varies., content: { application/json: { schema: { type: object, properties: { status: { type: integer }, data: { type: array, items: { $ref: '#/components/schemas/Notification' } } } } } } }
+    Json: { description: "JSON response; the complete schema and status behavior are not specified.", content: { application/json: { schema: { $ref: '#/components/schemas/JsonObject' } } } }
+    Binary: { description: "Binary image/media response.", content: { application/octet-stream: { schema: { type: string, format: binary } } } }

@@ -1,0 +1,5 @@
+resources:
+  - ../base
+  - storage.yaml
+patches:
+  - path: patch.yaml
