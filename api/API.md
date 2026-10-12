@@ -162,6 +162,46 @@ Alarms and Focus Mode share `/v2/alarms`. Alarm reads use `title`, `enabled`, `t
 
 Times are scheduled wall-clock seconds since midnight. Weekdays use a Monday-first seven-boolean array. Watch timezone semantics are unspecified. The CLI's Focus Mode body uses `SchoolMode: true` and `Type: 4`. `Lockdown` defaults to `false`; passing `create-focus-mode --lockdown` sends `Lockdown: true`. The command still requires `--yes` and rejects overnight ranges. An empty schedule list does not establish the current watch mode.
 
+`delete-focus-mode ID --yes` sends `DELETE /v2/alarms/{id}` without a request body.
+Use the schedule's `id` from `alarms`, not a watch ID. This is the shared alarm
+delete route and can also delete an ordinary alarm if its ID is selected.
+`delete-safe-zone ID --yes` sends `DELETE /v2/safezones/{id}` without a request
+body, using the zone's `id` from `safe-zones`. Both remove the selected resource
+for all assigned watches. Read the corresponding list before selecting a target
+and after deletion to verify removal. Delete routing is tested with mocked HTTP;
+live deletion behavior has not been verified.
+
+`update-focus-mode ID` reads `/v2/alarms`, then sends a complete supported alarm
+body to `PUT /v2/alarms/{id}`. `--enable` and `--disable` change `Enabled`;
+`--remove-device WATCH_ID` removes that integer from `Devices` while preserving
+the other assignments. The CLI refuses to remove the last watch. Writes require
+`--yes`; `--dry-run` emits the proposed request after reads without a write.
+
+Read/write field mapping includes `Id` (or read alias `id`) to `Id`, `title` to
+`Name`, `message` to `Message`, `enabled` to `Enabled`, `time` to `Time`, `endTime`
+to `EndTime`, `weekDays` to `WeekDays`, `schoolMode` to `SchoolMode`, `lockdown`
+to `Lockdown`, `snooze` to `Snooze`, `type` to `Type`, and `date` to `Date`.
+`focusMode`, `owning`, `silentMode`, and `allowedToSee` retain their spelling.
+Read `devices[].id` becomes integer `Devices[]`. Incomplete core settings cause
+the CLI to refuse the update; no default replaces a missing lockdown value.
+
+After an update, the CLI reads and compares the supported saved fields.
+Unregistration similarly verifies absence from the account roster. These checks
+do not establish immediate on-watch state or atomic protection against concurrent
+edits. The mutation request is never automatically replayed after authentication
+failure or a lost response; reconcile with reads before retrying. Update and
+unregistration behavior is covered offline and has not been live-verified.
+
+## Watch unregistration
+
+`unregister-device WATCH_ID --yes` checks account membership, then sends
+`POST /v2/device/unregister` with `{"deviceId":123,"deleteEsim":false}` for the
+illustrative watch ID 123. `--delete-esim` changes `deleteEsim` to `true`;
+`--dry-run` only checks membership and prints the request. IDs must be explicit
+positive 32-bit integers. This removes an account watch rather than just a
+schedule assignment. eSIM deletion defaults to off; subscription and billing
+effects are unspecified.
+
 ## Steps and notifications
 
 `POST /v2/stepcounter/list/daily/simple/{deviceId}` queries stored daily steps with `startDate` and `endDate` as `YYYY-MM-DD`. Both clients require an increasing range of at most 31 days. Server boundary inclusivity is unspecified. This read-only POST does not invoke the separate watch-sync operation `/stepcounter/report/{deviceId}`.

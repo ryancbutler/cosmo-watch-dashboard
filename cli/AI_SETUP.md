@@ -113,6 +113,7 @@ requesting watch sync.
 - Inspect the working tree and preserve existing edits. Keep documentation and Swagger aligned with route changes.
 - Route every request through `CosmoClient.request()`. Keep named GET routes centralized in `READ_ENDPOINTS`. Validate IDs and date ranges before network calls.
 - Obtain explicit user approval for live mutations even if `--yes` is present. All tracking, messaging, safe-zone, and Focus Mode writes require that flag.
+- `update-focus-mode` changes enabled state or removes watch assignments; `unregister-device` removes a watch from the account. Preview with `--dry-run`, execute only with authorized `--yes`, and read current state after any error before considering a retry. eSIM deletion is off unless `--delete-esim` is explicitly supplied.
 - Do not invent location-history bodies, status enums, timezone rules, or available chat history. Keep incomplete schemas and uncertain field meanings clearly labeled.
 - Keep captures, image downloads, chat backups, tokens, and credentials outside the repository. Avoid logging personal response bodies. Use `device --no-geocode` to avoid external reverse geocoding.
 - Run the mocked suite and syntax check after edits. Report actual results and any unverified live behavior. Never paste account data into documentation or fixtures.
