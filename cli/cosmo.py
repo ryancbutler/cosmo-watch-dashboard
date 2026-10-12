@@ -731,7 +731,8 @@ def parse_week_days(value: str) -> list[bool]:
 
 
 def build_focus_mode_body(
-    name: str, start_time: str, end_time: str, device_ids: list[str], week_days: list[bool]
+    name: str, start_time: str, end_time: str, device_ids: list[str], week_days: list[bool],
+    lockdown: bool = False,
 ) -> dict[str, Any]:
     """Build a Focus Mode schedule body."""
     if not name.strip():
@@ -755,7 +756,7 @@ def build_focus_mode_body(
         "Enabled": True,
         "EndTime": end_seconds,
         "focusMode": False,
-        "Lockdown": False,
+        "Lockdown": lockdown,
         "Message": name.strip(),
         "Name": name.strip(),
         "owning": True,
@@ -772,7 +773,8 @@ def cmd_create_focus_mode(client: CosmoClient, args: argparse.Namespace) -> None
     if not args.yes:
         raise ValueError("create-focus-mode changes real watch settings; re-run with --yes")
     body = build_focus_mode_body(
-        args.name, args.start_time, args.end_time, args.device, parse_week_days(args.days)
+        args.name, args.start_time, args.end_time, args.device, parse_week_days(args.days),
+        lockdown=args.lockdown,
     )
     emit(args, "create-focus-mode", client.request("POST", "/alarms", json_body=body))
 
@@ -908,7 +910,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--yes", action="store_true", help="confirm changing real watch settings")
     s.set_defaults(func=cmd_create_safe_zone)
 
-    s = sub.add_parser("create-focus-mode", help="create a non-lockdown Focus Mode schedule")
+    s = sub.add_parser("create-focus-mode", help="create a Focus Mode schedule (lockdown off by default)")
     s.add_argument("name", help="Focus Mode name")
     s.add_argument("start_time", help="start time in 24-hour HH:MM format")
     s.add_argument("end_time", help="end time in 24-hour HH:MM format")
@@ -917,6 +919,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--days", default="mon,tue,wed,thu,fri",
         help="comma-separated days; default: mon,tue,wed,thu,fri",
     )
+    s.add_argument("--lockdown", action="store_true", help="enable lockdown for this schedule (default: off)")
     s.add_argument("--yes", action="store_true", help="confirm changing real watch settings")
     s.set_defaults(func=cmd_create_focus_mode)
 

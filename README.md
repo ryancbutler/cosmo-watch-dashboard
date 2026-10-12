@@ -44,6 +44,9 @@ template-copy commands for both platforms and custom file locations.
 watches. Tokens stay outside the repository. Help needs no credentials. See
 [CLI commands](cli/README.md) and [agent installation from scratch](cli/AI_SETUP.md).
 
+Focus Mode schedules created with `create-focus-mode` have lockdown off by
+default. Add `--lockdown` to enable it for the schedule; creation requires `--yes`.
+
 ### Docker dashboard
 
 Requires Docker with Compose and Linux containers. No host Python or Node.js

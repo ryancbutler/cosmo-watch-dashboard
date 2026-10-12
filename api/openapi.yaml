@@ -370,7 +370,7 @@ components:
         Devices: { type: array, items: { type: integer } }
         SchoolMode: { type: boolean }
         Type: { type: integer, description: Focus Mode uses 4. }
-        Lockdown: { type: boolean }
+        Lockdown: { type: boolean, description: The CLI sends false by default; create-focus-mode --lockdown sends true. }
         owning: { type: boolean }
     DateRange: { type: object, additionalProperties: true, description: "Date-range object; fields are not specified for this operation." }
   requestBodies:
