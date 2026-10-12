@@ -110,6 +110,10 @@ entry to the user and run credentialed reads only when authorized.
 | `python cli/cosmo.py send-message [id] TEXT --yes` | Send a text message to a watch through the device-message route |
 | `python cli/cosmo.py create-safe-zone NAME LATITUDE LONGITUDE --device ID [--device ID] --yes` | Create an enabled safe zone; default/minimum radius is 200 m (about 656 ft; allowed range: 200–600 m) |
 | `python cli/cosmo.py create-focus-mode NAME START END --device ID [--device ID] --days DAYS [--lockdown] --yes` | Create a Focus Mode schedule; times use 24-hour `HH:MM`, days default to weekdays, and lockdown defaults to off; add `--lockdown` to enable it |
+| `python cli/cosmo.py delete-focus-mode ID --yes` | Delete a Focus Mode schedule using its alarm ID from `alarms` |
+| `python cli/cosmo.py delete-safe-zone ID --yes` | Delete a safe zone using its zone ID from `safe-zones` |
+| `python cli/cosmo.py update-focus-mode ID [--enable \| --disable] [--remove-device WATCH_ID] --yes` | Enable/disable a schedule or remove assigned watches; at least one change is required; repeat `--remove-device` as needed |
+| `python cli/cosmo.py unregister-device WATCH_ID [--delete-esim] --yes` | Remove a watch from the account; eSIM deletion defaults to off |
 | `python cli/cosmo.py backup-chats DIR` | Save every rostered conversation and available chat media into a new directory |
 
 ### Additional read commands
@@ -215,4 +219,68 @@ Read [AI_SETUP.md](AI_SETUP.md). `COSMO_DATA_DIR` overrides the external state d
 
 ## Watch mutations
 
-`locate`, `stop`, `device --turbo`/`--realtime`, `send-message`, `create-safe-zone`, and `create-focus-mode` require `--yes`. There is no arbitrary-route or generic write command. Obtain explicit human authorization before running any mutation; validate the target and verify persisted state afterward. Tracking lasts 300 seconds by default. Focus Mode and safe-zone request fields are documented in [API.md](../api/API.md).
+`locate`, `stop`, `device --turbo`/`--realtime`, `send-message`, `create-safe-zone`, `create-focus-mode`, `delete-safe-zone`, `delete-focus-mode`, `update-focus-mode`, and `unregister-device` require `--yes` for writes. There is no arbitrary-route or generic write command. Obtain explicit human authorization before running any mutation; validate the target and verify persisted state afterward. Tracking lasts 300 seconds by default. Focus Mode and safe-zone request fields are documented in [API.md](../api/API.md).
+
+Both create commands have matching delete commands. First read `alarms` or
+`safe-zones` and identify the resource's own numeric `Id` (or `id`). Delete commands require
+that ID explicitly and never use `COSMO_DEVICE_ID`. A deletion removes the entire
+schedule or zone, including its assignments to all watches. `delete-focus-mode`
+uses the shared alarm delete route, so selecting an ordinary alarm ID deletes
+that alarm as well. After deletion, repeat the list command to verify removal.
+The documented delete routes are covered by mocked tests; live deletion behavior
+has not been verified.
+
+`send-message` has no documented message-delete route. `backup-chats` creates
+local files; removing those files does not change service data. Authentication,
+stored daily-step queries, and tracking controls do not create separately
+deletable resources; tracking already has `stop`.
+
+### Update a Focus Mode schedule
+
+Read `alarms` and select the schedule's `Id` (or `id`). `update-focus-mode`
+accepts only School/Focus Mode entries, not ordinary alarms. Pass `--enable` or
+`--disable` to change its state, `--remove-device WATCH_ID` to remove an assigned
+watch, or combine a state change with removals. The enable/disable flags are
+mutually exclusive. IDs must be positive 32-bit integers and are always explicit.
+
+The command reads the schedule before writing, converts its supported fields to
+the alarm write format, and preserves its times, weekdays, lockdown, and other
+supported settings. It refuses incomplete or malformed responses instead of
+guessing retained values. It also refuses duplicate removal IDs, unassigned
+watches, and removal of the last watch; use `delete-focus-mode` for the latter.
+Disabling a schedule keeps its assignments and settings.
+
+For example, replace the fictional IDs below with IDs from `alarms` and `devices`:
+
+```sh
+python cli/cosmo.py update-focus-mode 7 --disable --dry-run
+python cli/cosmo.py update-focus-mode 7 --disable --yes
+python cli/cosmo.py update-focus-mode 7 --enable --yes
+python cli/cosmo.py update-focus-mode 7 --remove-device 123 --yes
+```
+
+### Remove a watch from the account
+
+`unregister-device WATCH_ID` first checks that the watch appears in `devices`.
+It sends `deviceId` and `deleteEsim` to `/v2/device/unregister`; `deleteEsim` is
+`false` unless `--delete-esim` is explicitly supplied. The eSIM flag requests
+deletion; service, subscription, and billing effects are not established.
+This operation differs from removing an assignment with `--remove-device`.
+
+```sh
+python cli/cosmo.py unregister-device 123 --dry-run
+python cli/cosmo.py unregister-device 123 --yes
+```
+
+For both new commands, `--dry-run` performs only reads (plus authentication) and
+prints JSON containing `method`, `path`, `body`, and `dryRun: true`. It needs no
+`--yes`; when both flags are present it still only previews. The preview is not
+a saved execution plan. Execution follows the existing CLI's `--yes` convention
+and reads current state again; reads and writes have no atomic concurrency guard.
+
+Execution sends one mutation request with authentication replay disabled, then
+reads the schedule or account roster to verify the result. Success emits the
+mutation response. A failed readback is reported as unverified, even if the
+write may have succeeded. After a timeout, authentication rejection, or failed
+verification, read current state before deciding whether to retry. The new
+operations are tested with mocked HTTP, not live service writes.

@@ -101,6 +101,22 @@ READ_ENDPOINTS = {
 }
 IMAGE_COMMANDS = {"user-image", "device-image", "contact-image"}
 
+# Named DELETE routes for resources created by the CLI. IDs are schedule/zone
+# IDs from list responses, never defaulted from COSMO_DEVICE_ID.
+DELETE_ENDPOINTS = {
+    "delete-safe-zone": ("/safezones/{id}", "safe-zone", "safe-zones"),
+    "delete-focus-mode": ("/alarms/{id}", "alarm schedule", "alarms"),
+}
+EP_ALARM_UPDATE = "/alarms/{id}"
+EP_DEVICE_UNREGISTER = "/device/unregister"
+ALARM_WRITE_FIELDS = {
+    "title": "Name", "message": "Message", "enabled": "Enabled",
+    "time": "Time", "endTime": "EndTime", "weekDays": "WeekDays",
+    "schoolMode": "SchoolMode", "focusMode": "focusMode", "lockdown": "Lockdown",
+    "owning": "owning", "silentMode": "silentMode", "snooze": "Snooze", "type": "Type",
+    "date": "Date", "allowedToSee": "allowedToSee",
+}
+
 
 class CosmoAuthError(Exception):
     """Invalid credentials / unrecoverable auth failure."""
@@ -214,8 +230,16 @@ class CosmoClient:
 
     def get_devices(self) -> list[dict[str, Any]]:
         body = self.get_map()
-        data = body.get("data", {}) if isinstance(body, dict) else {}
-        return data.get("Devices", []) or []
+        data = body.get("data") if isinstance(body, dict) else None
+        devices = data.get("Devices") if isinstance(data, dict) else None
+        if not isinstance(devices, list) or any(not isinstance(device, dict) for device in devices):
+            raise CosmoApiError("map returned an unsupported device list")
+        try:
+            for device in devices:
+                numeric_resource_id(device.get("id"), "watch")
+        except ValueError as err:
+            raise CosmoApiError("map returned a device without a valid watch id") from err
+        return devices
 
     def get_device(self, device_id: int | str) -> dict[str, Any] | None:
         for d in self.get_devices():
@@ -317,6 +341,7 @@ class CosmoClient:
         params: dict[str, Any] | None = None,
         binary: bool = False,
         auth: bool = True,
+        retry_auth: bool = True,
         _retried: bool = False,
     ) -> Any:
         # Accept Swagger's /v2 paths without accidentally requesting /v2/v2.
@@ -379,12 +404,12 @@ class CosmoClient:
             return body
         except CosmoAuthError:
             # A cached token may have been revoked server-side: re-login once.
-            if auth and not _retried:
+            if auth and retry_auth and not _retried:
                 self._log("auth rejected; logging in again and retrying")
                 self.login()
                 return self.request(
                     method, path, json_body=json_body, params=params, binary=binary,
-                    auth=auth, _retried=True,
+                    auth=auth, retry_auth=retry_auth, _retried=True,
                 )
             raise
 
@@ -779,6 +804,134 @@ def cmd_create_focus_mode(client: CosmoClient, args: argparse.Namespace) -> None
     emit(args, "create-focus-mode", client.request("POST", "/alarms", json_body=body))
 
 
+def cmd_delete(client: CosmoClient, args: argparse.Namespace) -> None:
+    """Delete a selected safe zone or Focus Mode schedule by its resource ID."""
+    if not args.yes:
+        raise ValueError(f"{args.command} changes real watch settings; re-run with --yes")
+    path, resource_kind, list_command = DELETE_ENDPOINTS[args.command]
+    resource_id = args.resource_id
+    if not resource_id.isascii() or not resource_id.isdigit():
+        raise ValueError(f"provide a numeric {resource_kind} id from `{list_command}`")
+    emit(args, args.command, client.request("DELETE", path.format(id=resource_id)))
+
+
+def numeric_resource_id(value: Any, kind: str) -> int:
+    text = str(value)
+    if not text.isascii() or not text.isdigit() or not 0 < int(text) <= 2147483647:
+        raise ValueError(f"provide a positive 32-bit numeric {kind} id")
+    return int(text)
+
+
+def find_focus_mode(client: CosmoClient, resource_id: int) -> dict[str, Any]:
+    response = client.get_resource("alarms")
+    schedules = response.get("data") if isinstance(response, dict) else None
+    if not isinstance(schedules, list) or any(not isinstance(item, dict) for item in schedules):
+        raise ValueError("alarms returned an unsupported schedule list")
+    matches = [item for item in schedules if str(item.get("Id", item.get("id"))) == str(resource_id)]
+    if len(matches) != 1:
+        raise ValueError("schedule id must identify exactly one entry in `alarms`")
+    schedule = matches[0]
+    if schedule.get("schoolMode") is not True and schedule.get("focusMode") is not True:
+        raise ValueError("selected alarm is not a Focus Mode schedule")
+    return schedule
+
+
+def focus_mode_update_body(schedule: dict[str, Any], resource_id: int) -> dict[str, Any]:
+    """Translate a complete schedule read without inventing retained settings."""
+    required = set(ALARM_WRITE_FIELDS) - {"date", "allowedToSee", "message"}
+    missing = sorted(required - schedule.keys())
+    if missing:
+        raise ValueError("schedule cannot be safely updated; missing fields: " + ", ".join(missing))
+    for field in ("enabled", "schoolMode", "focusMode", "lockdown", "owning", "silentMode", "snooze"):
+        if not isinstance(schedule[field], bool):
+            raise ValueError(f"schedule has an unsupported {field} value")
+    if not isinstance(schedule["title"], str) or not schedule["title"].strip():
+        raise ValueError("schedule has an unsupported title")
+    for field in ("time", "endTime"):
+        if type(schedule[field]) is not int or not 0 <= schedule[field] < 86400:
+            raise ValueError(f"schedule has an unsupported {field} value")
+    days = schedule["weekDays"]
+    if not isinstance(days, list) or len(days) != 7 or any(type(day) is not bool for day in days):
+        raise ValueError("schedule has unsupported weekDays")
+    if type(schedule["type"]) is not int:
+        raise ValueError("schedule has an unsupported type")
+    for field in ("message", "date"):
+        if schedule.get(field) is not None and not isinstance(schedule[field], str):
+            raise ValueError(f"schedule has an unsupported {field} value")
+    if schedule.get("allowedToSee") is not None and not isinstance(schedule["allowedToSee"], bool):
+        raise ValueError("schedule has an unsupported allowedToSee value")
+    devices = schedule.get("devices")
+    if not isinstance(devices, list) or any(not isinstance(device, dict) for device in devices):
+        raise ValueError("schedule has unsupported device assignments")
+    device_ids = [numeric_resource_id(device.get("id"), "watch") for device in devices]
+    if len(device_ids) != len(set(device_ids)):
+        raise ValueError("schedule has duplicate device assignments")
+    body = {write: schedule[read] for read, write in ALARM_WRITE_FIELDS.items() if read in schedule}
+    body.update({"Id": resource_id, "Devices": device_ids})
+    return body
+
+
+def request_confirmed_mutation(client: CosmoClient, method: str, path: str, body: dict[str, Any]) -> Any:
+    try:
+        return client.request(method, path, json_body=body, retry_auth=False)
+    except (CosmoApiError, CosmoAuthError) as err:
+        raise CosmoApiError(
+            f"Mutation was not retried: {err}. Read current state before trying again; "
+            "a lost response can leave the outcome unknown."
+        ) from err
+
+
+def cmd_update_focus_mode(client: CosmoClient, args: argparse.Namespace) -> None:
+    if not args.dry_run and not args.yes:
+        raise ValueError("update-focus-mode changes real watch settings; re-run with --yes or --dry-run")
+    resource_id = numeric_resource_id(args.resource_id, "schedule")
+    remove_ids = [numeric_resource_id(value, "watch") for value in args.remove_device]
+    if len(remove_ids) != len(set(remove_ids)):
+        raise ValueError("each --remove-device id must be supplied only once")
+    if args.enabled is None and not remove_ids:
+        raise ValueError("select --enable, --disable, or --remove-device")
+    body = focus_mode_update_body(find_focus_mode(client, resource_id), resource_id)
+    if any(value not in body["Devices"] for value in remove_ids):
+        raise ValueError("a --remove-device watch is not assigned to the schedule")
+    body["Devices"] = [value for value in body["Devices"] if value not in remove_ids]
+    if not body["Devices"]:
+        raise ValueError("cannot leave a schedule without watches; use delete-focus-mode instead")
+    if args.enabled is not None:
+        body["Enabled"] = args.enabled
+    path = EP_ALARM_UPDATE.format(id=resource_id)
+    if args.dry_run:
+        emit(args, args.command, {"method": "PUT", "path": "/v2" + path, "body": body, "dryRun": True})
+        return
+    result = request_confirmed_mutation(client, "PUT", path, body)
+    try:
+        persisted = focus_mode_update_body(find_focus_mode(client, resource_id), resource_id)
+        settings_match = all(persisted.get(key) == value for key, value in body.items() if key != "Devices")
+        if not settings_match or set(persisted["Devices"]) != set(body["Devices"]):
+            raise ValueError("returned schedule differs from the requested settings")
+    except (ValueError, CosmoApiError, CosmoAuthError) as err:
+        raise CosmoApiError(f"Update was sent but readback could not verify it: {err}. Do not blindly retry.") from err
+    emit(args, args.command, result)
+
+
+def cmd_unregister_device(client: CosmoClient, args: argparse.Namespace) -> None:
+    if not args.dry_run and not args.yes:
+        raise ValueError("unregister-device removes a real watch; re-run with --yes or --dry-run")
+    device_id = numeric_resource_id(args.device_id, "watch")
+    if client.get_device(device_id) is None:
+        raise ValueError("watch id is not listed on this account in `devices`")
+    body = {"deviceId": device_id, "deleteEsim": args.delete_esim}
+    if args.dry_run:
+        emit(args, args.command, {"method": "POST", "path": "/v2" + EP_DEVICE_UNREGISTER, "body": body, "dryRun": True})
+        return
+    result = request_confirmed_mutation(client, "POST", EP_DEVICE_UNREGISTER, body)
+    try:
+        if client.get_device(device_id) is not None:
+            raise ValueError("watch remains listed on this account")
+    except (ValueError, CosmoApiError, CosmoAuthError) as err:
+        raise CosmoApiError(f"Unregistration was sent but readback could not verify it: {err}. Do not blindly retry.") from err
+    emit(args, args.command, result)
+
+
 def cmd_device(client: CosmoClient, args: argparse.Namespace) -> None:
     if args.turbo and not args.yes:
         raise ValueError("device --turbo changes real watch settings; re-run with --yes")
@@ -922,6 +1075,29 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--lockdown", action="store_true", help="enable lockdown for this schedule (default: off)")
     s.add_argument("--yes", action="store_true", help="confirm changing real watch settings")
     s.set_defaults(func=cmd_create_focus_mode)
+
+    for name, (_, resource_kind, list_command) in DELETE_ENDPOINTS.items():
+        s = sub.add_parser(name, help=f"delete a {resource_kind} by id (requires --yes)")
+        s.add_argument("resource_id", help=f"{resource_kind} id from `{list_command}`; not a watch id")
+        s.add_argument("--yes", action="store_true", help="confirm deleting the resource from real watch settings")
+        s.set_defaults(func=cmd_delete)
+
+    s = sub.add_parser("update-focus-mode", help="enable/disable a schedule or remove assigned watches")
+    s.add_argument("resource_id", help="schedule id from `alarms`; not a watch id")
+    enabled = s.add_mutually_exclusive_group()
+    enabled.add_argument("--enable", dest="enabled", action="store_const", const=True, default=None, help="enable the saved schedule")
+    enabled.add_argument("--disable", dest="enabled", action="store_const", const=False, help="disable the saved schedule without deleting it")
+    s.add_argument("--remove-device", action="append", default=[], help="assigned watch id to remove; repeat as needed")
+    s.add_argument("--dry-run", action="store_true", help="read current settings and show the request without writing")
+    s.add_argument("--yes", action="store_true", help="confirm changing real watch settings")
+    s.set_defaults(func=cmd_update_focus_mode)
+
+    s = sub.add_parser("unregister-device", help="remove a watch from the account (eSIM deletion off by default)")
+    s.add_argument("device_id", help="explicit watch id from `devices`")
+    s.add_argument("--delete-esim", action="store_true", help="also request eSIM deletion (default: off)")
+    s.add_argument("--dry-run", action="store_true", help="check the account and show the request without writing")
+    s.add_argument("--yes", action="store_true", help="confirm removing the real watch from the account")
+    s.set_defaults(func=cmd_unregister_device)
 
     s = sub.add_parser("device", help="full JSON + address for each watch (or one, by id)")
     s.add_argument("device_id", nargs="?")

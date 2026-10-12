@@ -79,7 +79,7 @@ paths:
     post: { tags: [Device], summary: Create safe zone, requestBody: { $ref: '#/components/requestBodies/SafeZoneV2' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
   /v2/safezones/{id}:
     put: { tags: [Device], summary: Update safe zone, parameters: [{ $ref: '#/components/parameters/Id' }], requestBody: { $ref: '#/components/requestBodies/SafeZoneV2' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
-    delete: { tags: [Device], summary: Delete safe zone, parameters: [{ $ref: '#/components/parameters/Id' }], responses: { '200': { $ref: '#/components/responses/Json' } } }
+    delete: { tags: [Device], summary: Delete safe zone, description: "CLI: delete-safe-zone ID --yes. Use the zone ID from GET /v2/safezones, not a watch ID. Removes the zone for all assigned watches. No request body.", parameters: [{ $ref: '#/components/parameters/Id' }], responses: { '200': { $ref: '#/components/responses/Json' } } }
   /v2/settings/{deviceId}:
     put: { tags: [Settings], summary: Change active tracking settings and wake watch, parameters: [{ $ref: '#/components/parameters/DeviceId' }], requestBody: { $ref: '#/components/requestBodies/TrackingSettings' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
   /v2/location:
@@ -107,7 +107,7 @@ paths:
   /v2/sendActivationCode/{imei}:
     post: { tags: [Device], summary: Send activation code to IMEI, parameters: [{ $ref: '#/components/parameters/Imei' }], responses: { '200': { $ref: '#/components/responses/Json' } } }
   /v2/device/unregister:
-    post: { tags: [Device], summary: Unregister device, requestBody: { $ref: '#/components/requestBodies/DeviceUnregisterRequest' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+    post: { tags: [Device], summary: Unregister device, description: "CLI: unregister-device WATCH_ID --yes, with --dry-run for a read-only preview. eSIM deletion is off unless --delete-esim is supplied. Not live-verified; subscription and billing effects are unspecified.", requestBody: { $ref: '#/components/requestBodies/DeviceUnregisterRequest' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
   /v2/firmware/check/{deviceId}:
     post: { tags: [Device], summary: Check device firmware, parameters: [{ $ref: '#/components/parameters/DeviceId' }], responses: { '200': { $ref: '#/components/responses/Json' } } }
   /v2/firmware/update/{deviceId}:
@@ -142,8 +142,8 @@ paths:
   /v2/alarms/all:
     get: { tags: [Health], summary: List all alarms, responses: { '200': { $ref: '#/components/responses/AlarmEnvelope' } } }
   /v2/alarms/{id}:
-    put: { tags: [Health], summary: Update alarm, parameters: [{ $ref: '#/components/parameters/Id' }], requestBody: { $ref: '#/components/requestBodies/EditAlarm' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
-    delete: { tags: [Health], summary: Delete alarm, parameters: [{ $ref: '#/components/parameters/Id' }], responses: { '200': { $ref: '#/components/responses/Json' } } }
+    put: { tags: [Health], summary: Update alarm, description: "CLI: update-focus-mode ID with --enable, --disable, or --remove-device WATCH_ID. Reads the schedule and retains supported settings in the write body. Requires --yes; --dry-run previews without writing. Not live-verified; partial PUT semantics are unspecified.", parameters: [{ $ref: '#/components/parameters/Id' }], requestBody: { $ref: '#/components/requestBodies/EditAlarm' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+    delete: { tags: [Health], summary: Delete alarm, description: "CLI: delete-focus-mode ID --yes. Use the schedule ID from GET /v2/alarms, not a watch ID. Shared route for alarms and Focus Mode schedules; removes the schedule for all assigned watches. No request body.", parameters: [{ $ref: '#/components/parameters/Id' }], responses: { '200': { $ref: '#/components/responses/Json' } } }
   /v2/stepcounter:
     get: { tags: [Health], summary: Get step leaderboard, responses: { '200': { $ref: '#/components/responses/Json' } } }
   /v2/eventlogs:
@@ -235,7 +235,7 @@ components:
       properties: { reason: { type: string } }
     DeviceUnregisterRequest:
       type: object
-      properties: { deviceId: { type: integer, format: int32 }, deleteESim: { type: boolean } }
+      properties: { deviceId: { type: integer, format: int32 }, deleteEsim: { type: boolean, default: false } }
     DeviceIMEIRegisterRequest:
       type: object
       properties:
@@ -268,7 +268,9 @@ components:
       additionalProperties: true
       properties:
         Id: { type: integer }
+        id: { type: integer, description: Alternate spelling of Id. }
         title: { type: string }
+        message: { type: string, nullable: true }
         enabled: { type: boolean }
         time: { type: integer, nullable: true }
         endTime: { type: integer, nullable: true }
@@ -276,6 +278,13 @@ components:
         devices: { type: array, items: { type: object, properties: { id: { type: integer } } } }
         schoolMode: { type: boolean, nullable: true }
         focusMode: { type: boolean, nullable: true }
+        lockdown: { type: boolean }
+        owning: { type: boolean }
+        silentMode: { type: boolean }
+        snooze: { type: boolean }
+        type: { type: integer, nullable: true }
+        date: { type: string, nullable: true }
+        allowedToSee: { type: boolean, nullable: true }
     DailyStepRange:
       type: object
       required: [startDate, endDate]
@@ -362,7 +371,9 @@ components:
       additionalProperties: true
       description: Alarm write body; GET Alarm uses different casing and title instead of Name.
       properties:
+        Id: { type: integer, description: Schedule id on updates. }
         Name: { type: string }
+        Message: { type: string, nullable: true }
         Enabled: { type: boolean }
         Time: { type: integer, minimum: 0, maximum: 86399 }
         EndTime: { type: integer, minimum: 0, maximum: 86399 }
@@ -370,8 +381,13 @@ components:
         Devices: { type: array, items: { type: integer } }
         SchoolMode: { type: boolean }
         Type: { type: integer, description: Focus Mode uses 4. }
-        Lockdown: { type: boolean, description: The CLI sends false by default; create-focus-mode --lockdown sends true. }
+        Lockdown: { type: boolean, description: Creation defaults to false; create-focus-mode --lockdown sends true. Updates retain the current value. }
         owning: { type: boolean }
+        focusMode: { type: boolean }
+        silentMode: { type: boolean }
+        Snooze: { type: boolean }
+        Date: { type: string, nullable: true }
+        allowedToSee: { type: boolean, nullable: true }
     DateRange: { type: object, additionalProperties: true, description: "Date-range object; fields are not specified for this operation." }
   requestBodies:
     TextMessage: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TextMessage' } } } }

@@ -46,6 +46,17 @@ watches. Tokens stay outside the repository. Help needs no credentials. See
 
 Focus Mode schedules created with `create-focus-mode` have lockdown off by
 default. Add `--lockdown` to enable it for the schedule; creation requires `--yes`.
+Use `delete-focus-mode ID --yes` to delete a schedule by its alarm ID from
+`alarms`, or `delete-safe-zone ID --yes` to delete a zone by its ID from
+`safe-zones`. Both delete the selected resource for all assigned watches.
+
+Use `update-focus-mode ID --enable --yes` or `--disable --yes` to change a
+schedule's enabled state. `update-focus-mode ID --remove-device WATCH_ID --yes`
+removes one assigned watch while keeping the schedule for its other watches.
+`unregister-device WATCH_ID --yes` removes a watch from the account; eSIM
+deletion defaults to off. Both commands accept `--dry-run` to read the target
+and show the proposed request without writing. See [watch mutations](cli/README.md#watch-mutations)
+for requirements, verification limits, and examples.
 
 ### Docker dashboard
 
