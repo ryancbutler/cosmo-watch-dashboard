@@ -109,7 +109,7 @@ entry to the user and run credentialed reads only when authorized.
 | `python cli/cosmo.py stop [id] --yes` | Turn turbo mode back off |
 | `python cli/cosmo.py send-message [id] TEXT --yes` | Send a text message to a watch through the device-message route |
 | `python cli/cosmo.py create-safe-zone NAME LATITUDE LONGITUDE --device ID [--device ID] --yes` | Create an enabled safe zone; default/minimum radius is 200 m (about 656 ft; allowed range: 200–600 m) |
-| `python cli/cosmo.py create-focus-mode NAME START END --device ID [--device ID] --days DAYS --yes` | Create a Focus Mode schedule; times use 24-hour `HH:MM`, days default to weekdays, and the default is non-lockdown |
+| `python cli/cosmo.py create-focus-mode NAME START END --device ID [--device ID] --days DAYS [--lockdown] --yes` | Create a Focus Mode schedule; times use 24-hour `HH:MM`, days default to weekdays, and lockdown defaults to off; add `--lockdown` to enable it |
 | `python cli/cosmo.py backup-chats DIR` | Save every rostered conversation and available chat media into a new directory |
 
 ### Additional read commands

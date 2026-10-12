@@ -194,6 +194,36 @@ class ReadTests(unittest.TestCase):
             },
         )
 
+    def test_create_focus_mode_lockdown_requires_confirmation_and_sets_payload(self):
+        parser = cosmo.build_parser()
+        command = [
+            "create-focus-mode", "School", "08:30", "14:00", "--device", "123", "--lockdown",
+        ]
+        args = parser.parse_args(command)
+        self.client.request = Mock()
+        with self.assertRaisesRegex(ValueError, "--yes"):
+            args.func(self.client, args)
+        self.client.request.assert_not_called()
+
+        args = parser.parse_args(command + ["--yes"])
+        self.client.request = Mock(return_value={"status": 200})
+        with contextlib.redirect_stdout(io.StringIO()):
+            args.func(self.client, args)
+        self.client.request.assert_called_once_with(
+            "POST", "/alarms", json_body={
+                "Devices": [123], "Enabled": True, "EndTime": 50400,
+                "focusMode": False, "Lockdown": True, "Message": "School", "Name": "School",
+                "owning": True, "SchoolMode": True, "silentMode": False, "Time": 30600,
+                "Type": 4, "WeekDays": [True, True, True, True, True, False, False],
+            },
+        )
+
+    def test_focus_mode_body_defaults_lockdown_to_off(self):
+        body = cosmo.build_focus_mode_body(
+            "School", "08:30", "14:00", ["123"], cosmo.parse_week_days("mon"),
+        )
+        self.assertIs(body["Lockdown"], False)
+
     def test_image_output_and_no_overwrite(self):
         with tempfile.TemporaryDirectory() as tmp:
             dest = Path(tmp) / "image.png"

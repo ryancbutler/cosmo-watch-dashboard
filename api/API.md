@@ -160,7 +160,7 @@ Safe-zone bodies include `name`, `address`, string `latitude`/`longitude`, `radi
 
 Alarms and Focus Mode share `/v2/alarms`. Alarm reads use `title`, `enabled`, `time`, `endTime`, `weekDays`, `devices[].id`, `schoolMode`, and `focusMode`. Writes use differently cased fields such as `Name`, `Enabled`, `Time`, `EndTime`, `WeekDays`, and integer `Devices[]`.
 
-Times are scheduled wall-clock seconds since midnight. Weekdays use a Monday-first seven-boolean array. Watch timezone semantics are unspecified. The CLI's Focus Mode body uses `SchoolMode: true`, `Type: 4`, and `Lockdown: false`; it rejects overnight ranges. An empty schedule list does not establish the current watch mode.
+Times are scheduled wall-clock seconds since midnight. Weekdays use a Monday-first seven-boolean array. Watch timezone semantics are unspecified. The CLI's Focus Mode body uses `SchoolMode: true` and `Type: 4`. `Lockdown` defaults to `false`; passing `create-focus-mode --lockdown` sends `Lockdown: true`. The command still requires `--yes` and rejects overnight ranges. An empty schedule list does not establish the current watch mode.
 
 ## Steps and notifications
 
