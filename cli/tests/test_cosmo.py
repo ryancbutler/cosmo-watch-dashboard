@@ -361,6 +361,22 @@ class ReadTests(unittest.TestCase):
         self.assertIs(preview["body"]["Lockdown"], True)
         self.assertIs(preview["dryRun"], True)
 
+    def test_schedule_update_defaults_missing_snooze_from_live_reads(self):
+        # The live API omits "snooze" on alarm reads; disable/enable must still
+        # work, defaulting Snooze to False like the mocked fixtures.
+        schedule = focus_schedule()
+        del schedule["snooze"]
+        self.client.get_resource = Mock(return_value={"data": [schedule]})
+        self.client.request = Mock()
+        args = cosmo.build_parser().parse_args(["update-focus-mode", "7", "--disable", "--dry-run"])
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            args.func(self.client, args)
+        self.client.request.assert_not_called()
+        preview = json.loads(output.getvalue())
+        self.assertIs(preview["body"]["Enabled"], False)
+        self.assertIs(preview["body"]["Snooze"], False)
+
     def test_schedule_update_validates_inputs_before_reads(self):
         self.client.request = Mock()
         for command in (

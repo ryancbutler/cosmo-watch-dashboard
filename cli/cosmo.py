@@ -839,6 +839,11 @@ def find_focus_mode(client: CosmoClient, resource_id: int) -> dict[str, Any]:
 
 def focus_mode_update_body(schedule: dict[str, Any], resource_id: int) -> dict[str, Any]:
     """Translate a complete schedule read without inventing retained settings."""
+    schedule = dict(schedule)
+    # The live API omits "snooze" on alarm reads (the repo's own mocked tests use
+    # snooze=False). Default it so disable/enable updates can proceed; snooze is
+    # an alarm-clock property with no effect on focus/school-mode schedules.
+    schedule.setdefault("snooze", False)
     required = set(ALARM_WRITE_FIELDS) - {"date", "allowedToSee", "message"}
     missing = sorted(required - schedule.keys())
     if missing:
