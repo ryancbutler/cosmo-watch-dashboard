@@ -176,6 +176,11 @@ body to `PUT /v2/alarms/{id}`. `--enable` and `--disable` change `Enabled`;
 `--remove-device WATCH_ID` removes that integer from `Devices` while preserving
 the other assignments. The CLI refuses to remove the last watch. Writes require
 `--yes`; `--dry-run` emits the proposed request after reads without a write.
+The command accepts School/Focus Mode entries only, rejecting ordinary alarms.
+Changing `Enabled` controls whether the saved schedule can run under its time/day
+rules; it is not an immediate on-watch mode toggle. For the list, preview,
+execute, and verification steps, see the
+[CLI workflow](../cli/README.md#enable-disable-or-update-a-focus-mode-schedule).
 
 Read/write field mapping includes `Id` (or read alias `id`) to `Id`, `title` to
 `Name`, `message` to `Message`, `enabled` to `Enabled`, `time` to `Time`, `endTime`

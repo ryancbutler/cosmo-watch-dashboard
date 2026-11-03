@@ -13,7 +13,8 @@ Examples:
     python cosmo.py devices
     python cosmo.py --save map
     python cosmo.py device
-    python cosmo.py locate
+    python cosmo.py update-focus-mode 7 --disable --dry-run
+    python cosmo.py locate 123 --yes
 """
 
 from __future__ import annotations

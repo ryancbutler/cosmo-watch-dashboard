@@ -115,6 +115,37 @@ entry to the user and run credentialed reads only when authorized.
 | `python cli/cosmo.py update-focus-mode ID [--enable \| --disable] [--remove-device WATCH_ID] --yes` | Enable/disable a schedule or remove assigned watches; at least one change is required; repeat `--remove-device` as needed |
 | `python cli/cosmo.py unregister-device WATCH_ID [--delete-esim] --yes` | Remove a watch from the account; eSIM deletion defaults to off |
 | `python cli/cosmo.py backup-chats DIR` | Save every rostered conversation and available chat media into a new directory |
+| `python cli/cosmo.py daily-steps [id] --from YYYY-MM-DD --to YYYY-MM-DD` | Query stored daily steps over an increasing range of at most 31 days; does not request a watch sync |
+
+Use `python cli/cosmo.py COMMAND --help` for command-specific options; help
+requires no credentials. Global options go before the command, for example
+`python cli/cosmo.py --save alarms`.
+
+### Tracking and location options
+
+`device` reads last-known reports. Without an ID or `COSMO_DEVICE_ID`, it shows
+every watch; `device --turbo --yes` therefore enables tracking for every watch
+in that selection. Supply an explicit ID to target one watch. `--realtime` is
+an alias for `--turbo`. `--no-geocode` skips the external Nominatim address lookup.
+
+`locate` and `stop` select an explicit ID, `COSMO_DEVICE_ID`, or the account's
+sole watch. `locate` accepts `--duration` (default 300 seconds), `--frequency`
+(default 10 seconds), and `--no-wait` to return after enabling tracking without
+polling for a fresh fix. `stop` accepts `--frequency` (default 10 seconds).
+Without `--no-wait`, locating polls for roughly two minutes; a fresh report is
+not guaranteed. `locate` may also reverse-geocode a fresh fix and has no
+`--no-geocode` flag.
+
+```sh
+python cli/cosmo.py device 123 --no-geocode
+python cli/cosmo.py locate 123 --duration 300 --frequency 10 --no-wait --yes
+python cli/cosmo.py stop 123 --yes
+python cli/cosmo.py send-message 123 "Please call home" --yes
+```
+
+The IDs in examples are fictional. Tracking commands print human-readable
+status on stdout; they are not JSON-only commands. `device` emits each selected
+watch separately, so select one watch when a consumer expects one JSON document.
 
 ### Additional read commands
 
@@ -183,7 +214,7 @@ attachment URL cannot disclose account credentials.
 The Python client exposes these reads through `get_resource(name, resource_id)`.
 The `READ_ENDPOINTS` registry lists names and paths.
 
-Global flags (before the command): `-v` logs every request/response,
+Global flags (before the command): `-v`/`--verbose` logs request metadata to stderr,
 `--save` writes JSON to the external data directory's `captures/`.
 
 Named commands define the supported routes. Device writes require `--yes`; no arbitrary-route or generic write command is exposed.
@@ -235,7 +266,39 @@ local files; removing those files does not change service data. Authentication,
 stored daily-step queries, and tracking controls do not create separately
 deletable resources; tracking already has `stop`.
 
-### Update a Focus Mode schedule
+### Create and delete schedules or safe zones
+
+Read `devices` to choose watch IDs, then repeat `--device` for each assignment.
+Focus Mode creation accepts comma-separated day names (short names such as
+`mon` or full names such as `monday`, case-insensitive); duplicate days are
+rejected. The default is Monday through Friday. Times are 24-hour wall-clock
+times, and the end must be later on the same day. Overnight ranges are rejected;
+watch timezone behavior is unspecified.
+
+```sh
+python cli/cosmo.py devices
+python cli/cosmo.py create-focus-mode "School" 08:30 14:00 --device 123 --device 456 --days mon,tue,wed,thu,fri --yes
+python cli/cosmo.py alarms
+python cli/cosmo.py create-safe-zone "Home" 43.0 -89.0 --radius 200 --device 123 --yes
+python cli/cosmo.py safe-zones
+```
+
+Creation enables the schedule or zone immediately as a saved configuration.
+Focus Mode lockdown defaults to off; add `--lockdown` only when intended.
+Safe-zone coordinates above are fictional; replace them with the intended center.
+`--radius` is in meters and accepts 200 through 600 (default 200).
+Neither create nor delete commands support `--dry-run` or automatic readback.
+List the resources after creation, find the returned resource ID, and list again
+after deletion to verify the result:
+
+```sh
+python cli/cosmo.py delete-focus-mode 7 --yes
+python cli/cosmo.py alarms
+python cli/cosmo.py delete-safe-zone 8 --yes
+python cli/cosmo.py safe-zones
+```
+
+### Enable, disable, or update a Focus Mode schedule
 
 Read `alarms` and select the schedule's `Id` (or `id`). `update-focus-mode`
 accepts only School/Focus Mode entries, not ordinary alarms. Pass `--enable` or
@@ -249,15 +312,28 @@ supported settings. It refuses incomplete or malformed responses instead of
 guessing retained values. It also refuses duplicate removal IDs, unassigned
 watches, and removal of the last watch; use `delete-focus-mode` for the latter.
 Disabling a schedule keeps its assignments and settings.
+Enabling it makes its saved time/day rules eligible to run; this is not an
+immediate on-watch Focus Mode toggle. Saved API state does not prove that the
+watch has applied the change. Times, days, names, lockdown, and new assignments
+cannot be edited through `update-focus-mode`.
 
 For example, replace the fictional IDs below with IDs from `alarms` and `devices`:
 
 ```sh
+python cli/cosmo.py alarms
 python cli/cosmo.py update-focus-mode 7 --disable --dry-run
 python cli/cosmo.py update-focus-mode 7 --disable --yes
+python cli/cosmo.py alarms
+python cli/cosmo.py update-focus-mode 7 --enable --dry-run
 python cli/cosmo.py update-focus-mode 7 --enable --yes
+python cli/cosmo.py alarms
 python cli/cosmo.py update-focus-mode 7 --remove-device 123 --yes
 ```
+
+To combine changes, use `update-focus-mode 7 --disable --remove-device 123
+--remove-device 456 --dry-run`, then execute with `--yes` in place of
+`--dry-run` after reviewing the preview. At least one assigned watch must remain.
+An empty `alarms` list does not establish the watch's current mode.
 
 ### Remove a watch from the account
 
@@ -272,7 +348,7 @@ python cli/cosmo.py unregister-device 123 --dry-run
 python cli/cosmo.py unregister-device 123 --yes
 ```
 
-For both new commands, `--dry-run` performs only reads (plus authentication) and
+For `update-focus-mode` and `unregister-device`, `--dry-run` performs only reads (plus authentication) and
 prints JSON containing `method`, `path`, `body`, and `dryRun: true`. It needs no
 `--yes`; when both flags are present it still only previews. The preview is not
 a saved execution plan. Execution follows the existing CLI's `--yes` convention
@@ -282,5 +358,5 @@ Execution sends one mutation request with authentication replay disabled, then
 reads the schedule or account roster to verify the result. Success emits the
 mutation response. A failed readback is reported as unverified, even if the
 write may have succeeded. After a timeout, authentication rejection, or failed
-verification, read current state before deciding whether to retry. The new
+verification, read current state before deciding whether to retry. These
 operations are tested with mocked HTTP, not live service writes.

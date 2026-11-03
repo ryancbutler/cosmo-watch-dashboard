@@ -55,7 +55,11 @@ schedule's enabled state. `update-focus-mode ID --remove-device WATCH_ID --yes`
 removes one assigned watch while keeping the schedule for its other watches.
 `unregister-device WATCH_ID --yes` removes a watch from the account; eSIM
 deletion defaults to off. Both commands accept `--dry-run` to read the target
-and show the proposed request without writing. See [watch mutations](cli/README.md#watch-mutations)
+and show the proposed request without writing. Follow the
+[enable/disable workflow](cli/README.md#enable-disable-or-update-a-focus-mode-schedule)
+to list schedules, preview a change, execute, and check saved state. These controls
+apply to saved School/Focus Mode schedules; ordinary alarms and an immediate
+on-watch Focus Mode toggle are not supported. See [watch mutations](cli/README.md#watch-mutations)
 for requirements, verification limits, and examples.
 
 ### Docker dashboard
