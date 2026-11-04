@@ -230,6 +230,104 @@ class ReadTests(unittest.TestCase):
             },
         )
 
+    def test_create_alarm_requires_confirmation_before_requests(self):
+        args = cosmo.build_parser().parse_args(["create-alarm", "Wake up", "07:30", "--device", "123"])
+        self.client.request = Mock()
+        with self.assertRaisesRegex(ValueError, "--yes"):
+            args.func(self.client, args)
+        self.client.request.assert_not_called()
+
+    def test_create_alarm_posts_ordinary_alarm_through_transport(self):
+        args = cosmo.build_parser().parse_args([
+            "create-alarm", " Wake up ", "07:30", "--device", "123", "--device", "456", "--yes",
+        ])
+        self.client.session.request.return_value = response({"status": 200, "data": {"id": 7}})
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            args.func(self.client, args)
+        self.assertEqual(json.loads(output.getvalue()), {"status": 200, "data": {"id": 7}})
+        call = self.client.session.request.call_args
+        self.assertEqual(call.args, ("POST", cosmo.API_BASE + "/alarms"))
+        self.client.session.request.assert_called_once()
+        self.assertEqual(call.kwargs["json"], {
+            "Devices": [123, 456], "Enabled": True, "EndTime": 0,
+            "focusMode": False, "Lockdown": False, "Message": "Wake up", "Name": "Wake up",
+            "owning": True, "SchoolMode": False, "silentMode": False, "Time": 27000,
+            "Type": 4, "WeekDays": [True] * 7,
+        })
+
+    def test_create_alarm_preview_never_requests_even_with_yes(self):
+        for category, number in cosmo.ALARM_TYPES.items():
+            with self.subTest(category=category):
+                args = cosmo.build_parser().parse_args([
+                    "create-alarm", "Reminder", "23:59", "--device", "123", "--days", "sun,mon",
+                    "--type", category, "--disabled", "--dry-run", "--yes",
+                ])
+                self.client.request = Mock()
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    args.func(self.client, args)
+                preview = json.loads(output.getvalue())
+                self.client.request.assert_not_called()
+                self.assertEqual((preview["method"], preview["path"], preview["dryRun"]),
+                                 ("POST", "/v2/alarms", True))
+                self.assertEqual(preview["body"]["Time"], 86340)
+                self.assertEqual(preview["body"]["Type"], number)
+                self.assertIs(preview["body"]["Enabled"], False)
+                self.assertEqual(preview["body"]["WeekDays"], [True, False, False, False, False, False, True])
+
+    def test_create_alarm_preview_without_confirmation_supports_midnight(self):
+        args = cosmo.build_parser().parse_args([
+            "create-alarm", "Reminder", "00:00", "--device", "123", "--dry-run",
+        ])
+        self.client.request = Mock()
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            args.func(self.client, args)
+        self.client.request.assert_not_called()
+        self.assertEqual(json.loads(output.getvalue())["body"]["Time"], 0)
+
+    def test_create_alarm_does_not_replay_after_failure(self):
+        args = cosmo.build_parser().parse_args([
+            "create-alarm", "Wake", "07:30", "--device", "123", "--yes",
+        ])
+        self.client.login = Mock()
+        for failure in (response(status=401), response({"status": 2}), cosmo.requests.Timeout("lost response")):
+            with self.subTest(failure=failure):
+                self.client.session.request.reset_mock()
+                self.client.session.request.side_effect = [failure]
+                with self.assertRaisesRegex(cosmo.CosmoApiError, "Read current state"), contextlib.redirect_stderr(io.StringIO()):
+                    args.func(self.client, args)
+                self.client.session.request.assert_called_once()
+        self.client.login.assert_not_called()
+
+    def test_create_alarm_invalid_input_never_requests(self):
+        cases = [
+            ["", "07:30", "--device", "123"],
+            ["  ", "07:30", "--device", "123"],
+            *[["Wake", value, "--device", "123"] for value in
+              ("24:00", "12:60", "7:30", "07:3", "07:30:00", "noon", "０７:３０")],
+            ["Wake", "07:30", "--device", "abc"],
+            ["Wake", "07:30", "--device", "../123"],
+            ["Wake", "07:30", "--device", "１２３"],
+            ["Wake", "07:30", "--device", "123", "--device", "123"],
+            ["Wake", "07:30", "--device", "123", "--device", "0123"],
+            *[["Wake", "07:30", "--device", "123", "--days", value]
+              for value in ("", "noday", "mon,monday")],
+        ]
+        for case in cases:
+            with self.subTest(case=case):
+                args = cosmo.build_parser().parse_args(["create-alarm", *case, "--yes"])
+                self.client.request = Mock()
+                with self.assertRaises(ValueError):
+                    args.func(self.client, args)
+                self.client.request.assert_not_called()
+
+    def test_create_alarm_parser_requires_device_and_known_type(self):
+        for options in ([], ["--device", "123", "--type", "5"]):
+            with self.subTest(options=options), contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+                cosmo.build_parser().parse_args(["create-alarm", "Wake", "07:30", *options])
+
     def test_focus_mode_body_defaults_lockdown_to_off(self):
         body = cosmo.build_focus_mode_body(
             "School", "08:30", "14:00", ["123"], cosmo.parse_week_days("mon"),

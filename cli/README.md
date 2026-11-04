@@ -109,6 +109,7 @@ entry to the user and run credentialed reads only when authorized.
 | `python cli/cosmo.py stop [id] --yes` | Turn turbo mode back off |
 | `python cli/cosmo.py send-message [id] TEXT --yes` | Send a text message to a watch through the device-message route |
 | `python cli/cosmo.py create-safe-zone NAME LATITUDE LONGITUDE --device ID [--device ID] --yes` | Create an enabled safe zone; default/minimum radius is 200 m (about 656 ft; allowed range: 200–600 m) |
+| `python cli/cosmo.py create-alarm NAME TIME --device ID [--device ID] [--days DAYS] [--type CATEGORY] [--disabled] --yes` | Create a recurring ordinary alarm; time is 24-hour `HH:MM`, defaults to enabled every day with category `other`; `--dry-run` previews without writing |
 | `python cli/cosmo.py create-focus-mode NAME START END --device ID [--device ID] --days DAYS [--lockdown] --yes` | Create a Focus Mode schedule; times use 24-hour `HH:MM`, days default to weekdays, and lockdown defaults to off; add `--lockdown` to enable it |
 | `python cli/cosmo.py delete-focus-mode ID --yes` | Delete a Focus Mode schedule using its alarm ID from `alarms` |
 | `python cli/cosmo.py delete-safe-zone ID --yes` | Delete a safe zone using its zone ID from `safe-zones` |
@@ -120,6 +121,31 @@ entry to the user and run credentialed reads only when authorized.
 Use `python cli/cosmo.py COMMAND --help` for command-specific options; help
 requires no credentials. Global options go before the command, for example
 `python cli/cosmo.py --save alarms`.
+
+### Create an alarm
+
+Use watch IDs from `devices`; repeat `--device` to assign multiple watches.
+The following IDs are fictional:
+
+```sh
+python cli/cosmo.py create-alarm "Wake up" 07:30 --device 123 --days mon,tue,wed,thu,fri --type get-up --dry-run
+python cli/cosmo.py create-alarm "Wake up" 07:30 --device 123 --days mon,tue,wed,thu,fri --type get-up --yes
+python cli/cosmo.py alarms
+```
+
+Creation requires `--yes`. `--dry-run` prints the proposed POST body and makes
+no service requests, even when combined with `--yes`. Time uses wall-clock
+seconds since midnight; watch timezone/DST behavior is unspecified. `--days`
+accepts comma-separated day names and defaults to every day. At least one day
+is required; one-time dated alarms are not supported by this command.
+
+Categories are `get-up`, `drink`, `activity`, `sleep`, and `other` (the default).
+The name also supplies the alarm message. `--disabled` saves it disabled;
+otherwise it is enabled. This creates an ordinary alarm with School/Focus Mode
+and lockdown off. The request uses the documented alarm write fields, but this
+command has not been verified by creating a live alarm. Check saved state with
+`alarms` after creation; a successful response does not prove watch delivery.
+If a request times out, read `alarms` before retrying to avoid duplicates.
 
 ### Tracking and location options
 

@@ -756,6 +756,43 @@ def parse_week_days(value: str) -> list[bool]:
     return [index in indexes for index in range(7)]
 
 
+ALARM_TYPES = {"get-up": 0, "drink": 1, "activity": 2, "sleep": 3, "other": 4}
+
+
+def build_alarm_body(args: argparse.Namespace) -> dict[str, Any]:
+    """Build a recurring ordinary alarm, using the alarm editor's field casing."""
+    if not args.name.strip():
+        raise ValueError("alarm name cannot be empty")
+    if (len(args.time) != 5 or args.time[2] != ":"
+            or not args.time.replace(":", "").isascii()
+            or not args.time.replace(":", "").isdigit()):
+        raise ValueError("time must use 24-hour HH:MM format")
+    seconds = time_of_day_seconds(args.time)
+    if not args.device or any(not value.isascii() or not value.isdigit() for value in args.device):
+        raise ValueError("provide one or more numeric --device ids")
+    devices = [int(value) for value in args.device]
+    if len(set(devices)) != len(devices):
+        raise ValueError("each --device id must be supplied only once")
+    return {
+        "Devices": devices, "Enabled": not args.disabled, "EndTime": 0,
+        "focusMode": False, "Lockdown": False, "Message": args.name.strip(),
+        "Name": args.name.strip(), "owning": True, "SchoolMode": False,
+        "silentMode": False, "Time": seconds, "Type": ALARM_TYPES[args.type],
+        "WeekDays": parse_week_days(args.days),
+    }
+
+
+def cmd_create_alarm(client: CosmoClient, args: argparse.Namespace) -> None:
+    """Create an ordinary alarm only after explicit confirmation."""
+    if not args.dry_run and not args.yes:
+        raise ValueError("create-alarm changes real watch settings; re-run with --yes")
+    body = build_alarm_body(args)
+    if args.dry_run:
+        emit(args, args.command, {"method": "POST", "path": "/v2/alarms", "body": body, "dryRun": True})
+        return
+    emit(args, args.command, request_confirmed_mutation(client, "POST", "/alarms", body))
+
+
 def build_focus_mode_body(
     name: str, start_time: str, end_time: str, device_ids: list[str], week_days: list[bool],
     lockdown: bool = False,
@@ -1068,6 +1105,17 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--device", action="append", required=True, help="watch id; repeat for each watch")
     s.add_argument("--yes", action="store_true", help="confirm changing real watch settings")
     s.set_defaults(func=cmd_create_safe_zone)
+
+    s = sub.add_parser("create-alarm", help="create a recurring alarm for selected watches")
+    s.add_argument("name", help="alarm name and message")
+    s.add_argument("time", help="alarm time in 24-hour HH:MM format")
+    s.add_argument("--device", action="append", required=True, help="watch id; repeat for each watch")
+    s.add_argument("--days", default="mon,tue,wed,thu,fri,sat,sun", help="comma-separated days; default: every day")
+    s.add_argument("--type", choices=ALARM_TYPES, default="other", help="alarm category (default: other)")
+    s.add_argument("--disabled", action="store_true", help="create the saved alarm disabled (default: enabled)")
+    s.add_argument("--dry-run", action="store_true", help="show the request without contacting the service")
+    s.add_argument("--yes", action="store_true", help="confirm changing real watch settings")
+    s.set_defaults(func=cmd_create_alarm)
 
     s = sub.add_parser("create-focus-mode", help="create a Focus Mode schedule (lockdown off by default)")
     s.add_argument("name", help="Focus Mode name")
