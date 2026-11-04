@@ -44,6 +44,11 @@ template-copy commands for both platforms and custom file locations.
 watches. Tokens stay outside the repository. Help needs no credentials. See
 [CLI commands](cli/README.md) and [agent installation from scratch](cli/AI_SETUP.md).
 
+Create a recurring alarm with `create-alarm "Wake up" 07:30 --device 123 --yes`.
+It defaults to enabled every day; use `--days mon,tue,wed,thu,fri` for weekdays
+or `--dry-run` to preview the request. See [alarm creation](cli/README.md#create-an-alarm)
+for categories, disabled creation, and verification limits.
+
 Focus Mode schedules created with `create-focus-mode` have lockdown off by
 default. Add `--lockdown` to enable it for the schedule; creation requires `--yes`.
 Use `delete-focus-mode ID --yes` to delete a schedule by its alarm ID from

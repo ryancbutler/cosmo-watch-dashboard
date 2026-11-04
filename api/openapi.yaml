@@ -138,7 +138,7 @@ paths:
 
   /v2/alarms:
     get: { tags: [Health], summary: List alarms, responses: { '200': { $ref: '#/components/responses/AlarmEnvelope' } } }
-    post: { tags: [Health], summary: Create alarm, requestBody: { $ref: '#/components/requestBodies/EditAlarm' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
+    post: { tags: [Health], summary: Create alarm, description: "CLI: create-alarm NAME HH:MM --device ID --yes creates an ordinary recurring alarm with SchoolMode false and EndTime 0. Defaults to enabled every day, Type 4 (other). Supports --days, --type, --disabled, and --dry-run. Live creation and watch delivery are unverified. Focus Mode creation uses the same route with SchoolMode true.", requestBody: { $ref: '#/components/requestBodies/EditAlarm' }, responses: { '200': { $ref: '#/components/responses/Json' } } }
   /v2/alarms/all:
     get: { tags: [Health], summary: List all alarms, responses: { '200': { $ref: '#/components/responses/AlarmEnvelope' } } }
   /v2/alarms/{id}:
@@ -380,7 +380,7 @@ components:
         WeekDays: { type: array, minItems: 7, maxItems: 7, items: { type: boolean }, description: Monday first. }
         Devices: { type: array, items: { type: integer } }
         SchoolMode: { type: boolean }
-        Type: { type: integer, description: Focus Mode uses 4. }
+        Type: { type: integer, description: "Alarm categories: 0 get-up, 1 drink, 2 activity, 3 sleep, 4 other. Focus Mode also uses 4." }
         Lockdown: { type: boolean, description: Creation defaults to false; create-focus-mode --lockdown sends true. Updates retain the current value. }
         owning: { type: boolean }
         focusMode: { type: boolean }

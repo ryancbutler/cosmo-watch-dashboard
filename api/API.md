@@ -160,6 +160,17 @@ Safe-zone bodies include `name`, `address`, string `latitude`/`longitude`, `radi
 
 Alarms and Focus Mode share `/v2/alarms`. Alarm reads use `title`, `enabled`, `time`, `endTime`, `weekDays`, `devices[].id`, `schoolMode`, and `focusMode`. Writes use differently cased fields such as `Name`, `Enabled`, `Time`, `EndTime`, `WeekDays`, and integer `Devices[]`.
 
+`create-alarm NAME HH:MM --device ID [--device ID] --yes` posts an ordinary
+recurring alarm. It sends `SchoolMode: false`, `focusMode: false`,
+`Lockdown: false`, `silentMode: false`, `owning: true`, `EndTime: 0`, and the
+name in both `Name` and `Message`. `Enabled` defaults to true; `--disabled`
+sets it false. `--days` defaults to all seven days. `--type` maps `get-up`,
+`drink`, `activity`, `sleep`, and `other` to 0, 1, 2, 3, and 4 respectively;
+the default is `other`. These fields and categories follow the alarm client
+contract; live creation and watch delivery remain unverified. `--dry-run`
+prints the request without contacting the service. Read `alarms` afterward
+to check persisted state, especially before retrying an uncertain result.
+
 Times are scheduled wall-clock seconds since midnight. Weekdays use a Monday-first seven-boolean array. Watch timezone semantics are unspecified. The CLI's Focus Mode body uses `SchoolMode: true` and `Type: 4`. `Lockdown` defaults to `false`; passing `create-focus-mode --lockdown` sends `Lockdown: true`. The command still requires `--yes` and rejects overnight ranges. An empty schedule list does not establish the current watch mode.
 
 `delete-focus-mode ID --yes` sends `DELETE /v2/alarms/{id}` without a request body.
