@@ -74,5 +74,5 @@ spec:
                 name: cosmo-collector-script
             - name: service-access
               secret:
-                secretName: cosmo-site-service
+                secretName: cosmo-site-service-vault
                 defaultMode: 0440
